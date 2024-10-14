@@ -28,6 +28,9 @@ try:
 except:
     tqdm = False
 
+import mutagen
+import sys
+
 ## 初始化
 search_api_list=['https://music-api.0m2.cn', ## 第三方API，访问快，稳定性未知
                  'https://music.api.ravelloh.top',## 个人自建API，访问慢，稳定性好
@@ -158,7 +161,7 @@ def checklrcapi():
 def setlog():
     global log_file
     print('输入日志文件(musicinfo.log)存放的目录(输入skip以跳过，直接换行以使用程序当前目录):\n----(日志用于保存运行进度及记录运行情况，下次运行时可自动导入运行设置)')
-    log_file=input('>')
+    log_file=origin_file # input('>')
     if log_file == 'skip':
         print(done+'日志检查已跳过')
         return
@@ -171,7 +174,7 @@ def setlog():
     
     if os.path.isdir(log_file) == False:
         print(warning+'此目录不存在，是否创建？(y/n)')
-        option=input('>')
+        option='y' # input('>')
         if option == 'y':
             try:
                 os.makedirs(log_file)
@@ -187,7 +190,7 @@ def setlog():
             
     if os.path.isfile(log_file+'musicinfo.log') == False:
         print(warning+'未在此目录中发现musicinfo.log，是否创建? (y/n)')
-        option2 = input('>')
+        option2 = 'y' # input('>')
         if option2 == 'y':
             try:
                 open(log_file+'musicinfo.log','x') 
@@ -286,20 +289,18 @@ def setup():
     if log_setting != [''] and log_file != 'skip':
         origin_file = log_setting[0]
         print(done+'已从log中导入了待处理文件夹:'+origin_file)
-    else:
-        origin_file = input('输入存放待处理歌曲的文件夹:\n>')
     try: 
         for file_name in os.listdir(origin_file):
             if file_name[file_name.rfind('.')+1:].lower() in music_type:
                 music_list.append(file_name)
     except:
         print(error+'无法打开路径:\'%s\',请确认路径正确\n' %(origin_file))
-        setup()
+        # setup()
         return
          
     if music_list == []:
         print(error+'未找到音频文件,支持的音频文件有:'+str(music_type)+'\n')
-        setup()
+        # setup()
         return
     else:
         print(success+'载入%s个音频文件' %(len(music_list)))
@@ -308,23 +309,23 @@ def setup():
         target_file = log_setting[1]
         print(done+'已从log中导入了lrc保存文件夹:'+origin_file)
     else:
-        target_file = input('输入存放lrc保存目录的文件夹:(不输入则使用歌曲目录保存)\n>')
+        target_file = '' # input('输入存放lrc保存目录的文件夹:(不输入则使用歌曲目录保存)\n>')
     if target_file == '':
         target_file = origin_file
     if os.path.isdir(target_file) == False:
         print(warning+'此目录不存在，是否创建？(y/n)')
-        option=input('>')
+        option='y' # input('>')
         if option == 'y':
             try:
                 os.makedirs(target_file)
                 print(success+'已创建新目录')
             except:
                 print(error+'目录创建失败:无权限。将重试：')
-                setup()
+                # setup()
                 return
         else:
             print(error+'目录打开失败:目录不存在。将重试：')
-            setup()
+            # setup()
             return
     if log_setting != [''] and log_file != 'skip':
         optionlang = log_setting[2]
@@ -337,7 +338,7 @@ def setup():
         
     except:
         print(error+'无法打开路径:\'%s\',请确认路径正确\n' %(origin_file))
-        setup()
+        # setup()
         return
     
 ## 检查lrc覆盖
@@ -384,7 +385,7 @@ def setting():
         optionlang = log_setting[2]
     else:
         print('歌词语言设置:下载原文或尽可能翻译？(输入 原文 或 翻译 进行选择)')
-        optionlang = input('>')
+        optionlang = '原文' # input('>')
     if optionlang == '原文':
         print(success+'已选择原文')
         main()
@@ -586,7 +587,19 @@ def main():
     global load
     for music_file in todo_files:
         load += 1
-        file_name=os.path.splitext(music_file)[0]
+        orig_file_name=os.path.splitext(music_file)[0]
+        obj = mutagen.File(target_file+'/'+music_file)
+        title = None
+        if 'title' in obj:
+            title = " ".join(obj['title'])
+        artist = None
+        if 'artist' in obj:
+            artist = ",".join(obj['artist'])
+        if title and artist:
+            file_name = f"{artist} - {title}"
+        else:
+            file_name = orig_file_name
+        
         search_error = 0
         search(file_name)
         if search_result == '':
@@ -595,6 +608,7 @@ def main():
             print(error+'搜索错误: '+music_file)
         else:
             search_parse()
+            file_name = orig_file_name
             if songid == '000000':
                 warning_list.append(music_file)
                 print('')
@@ -666,6 +680,16 @@ def writelog():
         
 ## 启动器
 print(logo+version+'\n')
+
+if len(sys.argv) != 2:
+    print(f"Usage: {sys.argv[0]} <input-file-dir>")
+    exit(0)
+if not os.path.exists(sys.argv[1]):
+    print(f"Folder {sys.argv[1]} not exist!")
+    exit(0)
+
+origin_file = sys.argv[1]
+
 check()
 setlog()
 importlog()
